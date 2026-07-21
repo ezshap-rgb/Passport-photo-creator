@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passport Photo Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .canvas-container { position: relative; overflow: hidden; background: #fff; cursor: move; }
+        .mask-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            border: 2px dashed rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+        input[type=range] { width: 100%; height: 6px; background: #d1d5db; border-radius: 5px; appearance: none; outline: none; }
+        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: #3b82f6; cursor: pointer; border-radius: 50%; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-800">Passport Photo Studio</h1>
+            <p class="text-gray-600">Prepare professional passport photos for any country.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Sidebar Controls -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6 h-fit">
+                <!-- Size Selection -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Select Passport Size</label>
+                    <select id="sizeSelector" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="us" data-w="50.8" data-h="50.8">USA / Israel (2x2 inch)</option>
+                        <option value="uk" data-w="35" data-h="45">UK / EU / AU (35x45 mm)</option>
+                        <option value="ca" data-w="50" data-h="70">Canada (50x70 mm)</option>
+                    </select>
+                </div>
+
+                <!-- Upload -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Upload Photo</label>
+                    <input type="file" id="fileInput" accept="image/*" class="hidden">
+                    <button onclick="document.getElementById('fileInput').click()" class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>
+                        Upload Image
+                    </button>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Adjustments -->
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Scale</label>
+                            <span id="zoomVal" class="text-xs text-gray-400">100%</span>
+                        </div>
+                        <input type="range" id="zoomSlider" min="10" max="400" value="100">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-bold text-gray-500 uppercase tracking-wider">Background Brightness</label>
+                            <span id="brightVal" class="text-xs text-gray-400">0</span>
+                        </div>
+                        <input type="range" id="brightSlider" min="-50" max="100" value="0">
+                    </div>
+                </div>
+
+                <hr class="border-gray-100">
+
+                <!-- Print Options -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Output Sheet Size (Landscape)</label>
+                        <select id="sheetSelector" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="6x4">6 x 4 inch (Landscape)</option>
+                            <option value="15x10">15 x 10 cm (Landscape)</option>
+                        </select>
+                    </div>
+
+                    <button id="downloadBtn" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM10 2a1 1 0 011 1v8.586l2.293-2.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 11.586V3a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        Download Print Sheet
+                    </button>
+                </div>
+            </div>
+
+            <!-- Workspace -->
+            <div class="lg:col-span-2 flex flex-col items-center">
+                <div id="workspace" class="bg-gray-200 rounded-2xl p-4 md:p-8 w-full flex flex-col items-center justify-center min-h-[500px]">
+                    <div id="canvasBox" class="canvas-container shadow-2xl transition-all duration-300">
+                        <canvas id="mainCanvas"></canvas>
+                        <div id="maskOverlay" class="mask-overlay"></div>
+                    </div>
+                    <p class="mt-4 text-sm text-gray-500 text-center max-w-md">Drag to move photo. Use the red dashed (vertical) and dotted (horizontal) lines to center the subject.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Export Canvas -->
+    <canvas id="exportCanvas" style="display:none;"></canvas>
+
+    <script>
+        const sizeSelector = document.getElementById('sizeSelector');
+        const sheetSelector = document.getElementById('sheetSelector');
+        const zoomSlider = document.getElementById('zoomSlider');
+        const brightSlider = document.getElementById('brightSlider');
+        const fileInput = document.getElementById('fileInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const mainCanvas = document.getElementById('mainCanvas');
+        const canvasBox = document.getElementById('canvasBox');
+        const maskOverlay = document.getElementById('maskOverlay');
+        const ctx = mainCanvas.getContext('2d');
+
+        const DPI = 300;
+        const MM_TO_INCH = 25.4;
+        let img = null;
+        let imgX = 0;
+        let imgY = 0;
+        let scale = 1;
+        let brightness = 0;
+        let isDragging = false;
+        let lastX, lastY;
+
+        let targetW_mm = 50.8; 
+        let targetH_mm = 50.8;
+
+        function updateCanvasSize() {
+            const opt = sizeSelector.options[sizeSelector.selectedIndex];
+            targetW_mm = parseFloat(opt.dataset.w);
+            targetH_mm = parseFloat(opt.dataset.h);
+
+            const displayScale = 5; 
+            canvasBox.style.width = (targetW_mm * displayScale) + 'px';
+            canvasBox.style.height = (targetH_mm * displayScale) + 'px';
+            
+            mainCanvas.width = targetW_mm * displayScale;
+            mainCanvas.height = targetH_mm * displayScale;
+
+            draw();
+        }
+
+        function draw() {
+            if (!img) {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, mainCanvas.width, mainCanvas.height);
+                drawGuides();
+                return;
+            }
+
+            ctx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            ctx.filter = `brightness(${100 + brightness}%) contrast(${100 + (brightness > 0 ? brightness * 0.5 : 0)}%)`;
+            
+            const drawW = img.width * (mainCanvas.width / img.width) * (zoomSlider.value / 100);
+            const drawH = img.height * (mainCanvas.width / img.width) * (zoomSlider.value / 100);
+
+            ctx.drawImage(img, imgX, imgY, drawW, drawH);
+            ctx.filter = 'none';
+
+            drawGuides();
+        }
+
+        function drawGuides() {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)'; // Light Red
+            ctx.lineWidth = 1;
+
+            const midX = mainCanvas.width / 2;
+            const midY = mainCanvas.height / 2;
+
+            // Vertical dashed line (center guide)
+            ctx.beginPath();
+            ctx.setLineDash([10, 5]);
+            ctx.moveTo(midX, 0);
+            ctx.lineTo(midX, mainCanvas.height);
+            ctx.stroke();
+
+            // Horizontal dotted line (center guide)
+            ctx.beginPath();
+            ctx.setLineDash([2, 4]);
+            ctx.moveTo(0, midY);
+            ctx.lineTo(mainCanvas.width, midY);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        canvasBox.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        window.addEventListener('mousemove', e => {
+            if (!isDragging || !img) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            imgX += dx;
+            imgY += dy;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            draw();
+        });
+
+        canvasBox.addEventListener('touchstart', e => { 
+            isDragging = true; 
+            lastX = e.touches[0].clientX; 
+            lastY = e.touches[0].clientY; 
+        });
+        window.addEventListener('touchend', () => { isDragging = false; });
+        window.addEventListener('touchmove', e => {
+            if (!isDragging || !img) return;
+            const dx = e.touches[0].clientX - lastX;
+            const dy = e.touches[0].clientY - lastY;
+            imgX += dx;
+            imgY += dy;
+            lastX = e.touches[0].clientX;
+            lastY = e.touches[0].clientY;
+            draw();
+        }, {passive: false});
+
+        fileInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = event => {
+                img = new Image();
+                img.onload = () => {
+                    imgX = 0; imgY = 0;
+                    zoomSlider.value = 100;
+                    updateCanvasSize();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        zoomSlider.oninput = () => { document.getElementById('zoomVal').innerText = zoomSlider.value + '%'; draw(); };
+        brightSlider.oninput = () => { 
+            brightness = parseInt(brightSlider.value);
+            document.getElementById('brightVal').innerText = brightness; 
+            draw(); 
+        };
+        sizeSelector.onchange = updateCanvasSize;
+
+        downloadBtn.onclick = () => {
+            if (!img) return;
+            
+            const exportCanvas = document.getElementById('exportCanvas');
+            const eCtx = exportCanvas.getContext('2d');
+
+            const sheet = sheetSelector.value;
+            let sheetW_in = 6;
+            let sheetH_in = 4;
+            if (sheet === '15x10') {
+                sheetW_in = 150 / MM_TO_INCH;
+                sheetH_in = 100 / MM_TO_INCH;
+            }
+
+            exportCanvas.width = sheetW_in * DPI;
+            exportCanvas.height = sheetH_in * DPI;
+
+            eCtx.fillStyle = 'white';
+            eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+            const pWidth = (targetW_mm / MM_TO_INCH) * DPI;
+            const pHeight = (targetH_mm / MM_TO_INCH) * DPI;
+
+            const singleCanvas = document.createElement('canvas');
+            singleCanvas.width = pWidth;
+            singleCanvas.height = pHeight;
+            const sCtx = singleCanvas.getContext('2d');
+            
+            sCtx.filter = `brightness(${100 + brightness}%) contrast(${100 + (brightness > 0 ? brightness * 0.5 : 0)}%)`;
+            
+            const previewToRealScale = pWidth / mainCanvas.width;
+            sCtx.drawImage(img, imgX * previewToRealScale, imgY * previewToRealScale, 
+                           img.width * (mainCanvas.width / img.width) * (zoomSlider.value / 100) * previewToRealScale,
+                           img.height * (mainCanvas.width / img.width) * (zoomSlider.value / 100) * previewToRealScale);
+
+            // Removed all internal margins and external padding for maximum paper usage
+            const margin = 0; 
+            const padding = 0; 
+            
+            let currentX = padding;
+            let currentY = padding;
+
+            while (currentY + pHeight <= exportCanvas.height) {
+                while (currentX + pWidth <= exportCanvas.width) {
+                    eCtx.drawImage(singleCanvas, currentX, currentY);
+                    
+                    // Faint guide lines for cutting
+                    eCtx.strokeStyle = '#cccccc';
+                    eCtx.setLineDash([5, 5]);
+                    eCtx.lineWidth = 1;
+                    eCtx.strokeRect(currentX, currentY, pWidth, pHeight);
+
+                    currentX += pWidth + margin;
+                }
+                currentX = padding;
+                currentY += pHeight + margin;
+            }
+
+            const link = document.createElement('a');
+            link.download = `passport_photos_borderless_${Date.now()}.png`;
+            link.href = exportCanvas.toDataURL('image/png', 1.0);
+            link.click();
+        };
+
+        updateCanvasSize();
+    </script>
+</body>
+</html>
