@@ -430,9 +430,61 @@
             position: relative;
             display: flex;
             align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .slider-step-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            min-width: 36px;
+            border-radius: 50%;
+            background: var(--surface-raised);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        .slider-step-btn:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary);
+            color: #FFFFFF;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
+        }
+
+        .slider-step-btn:focus-visible {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
+        }
+
+        .slider-step-btn:active {
+            transform: scale(0.92);
+            background: rgba(99, 102, 241, 0.35);
+        }
+
+        .slider-step-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2.5;
+            stroke: currentColor;
+            pointer-events: none;
         }
 
         input[type=range] {
+            flex: 1;
+            min-width: 0;
             width: 100%;
             height: 6px;
             background: var(--surface-raised);
@@ -529,10 +581,10 @@
                     Passport Standard
                 </div>
                 <select id="sizeSelector" class="custom-select">
-                    <option value="us" data-w="50.8" data-h="50.8" selected>USA / Israel (2 &times; 2 in / 51 &times; 51 mm)</option>
+                    <option value="us" data-w="50.8" data-h="50.8" selected>USA (2 &times; 2 in)</option>
+                    <option value="il" data-w="50" data-h="50">Israel (50 &times; 50 mm)</option>
                     <option value="uk" data-w="35" data-h="45">UK / EU / Schengen / AU (35 &times; 45 mm)</option>
                     <option value="ca" data-w="50" data-h="70">Canada (50 &times; 70 mm)</option>
-                    <option value="in" data-w="50.8" data-h="50.8">India (51 &times; 51 mm / 2 &times; 2 in)</option>
                 </select>
             </div>
 
@@ -613,7 +665,13 @@
                     <span id="zoomVal" class="label-value">100%</span>
                 </label>
                 <div class="slider-wrap">
-                    <input type="range" id="zoomSlider" min="20" max="400" value="100">
+                    <button type="button" class="slider-step-btn" id="zoomMinusBtn" aria-label="Decrease zoom" title="Decrease zoom">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <input type="range" id="zoomSlider" min="20" max="400" value="100" step="1">
+                    <button type="button" class="slider-step-btn" id="zoomPlusBtn" aria-label="Increase zoom" title="Increase zoom">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
                 </div>
             </div>
 
@@ -624,7 +682,13 @@
                     <span id="brightVal" class="label-value">0</span>
                 </label>
                 <div class="slider-wrap">
-                    <input type="range" id="brightSlider" min="-50" max="100" value="0">
+                    <button type="button" class="slider-step-btn" id="brightMinusBtn" aria-label="Decrease brightness" title="Decrease brightness">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <input type="range" id="brightSlider" min="-50" max="100" value="0" step="1">
+                    <button type="button" class="slider-step-btn" id="brightPlusBtn" aria-label="Increase brightness" title="Increase brightness">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
                 </div>
             </div>
 
@@ -1034,6 +1098,65 @@
             draw();
         };
 
+        function setupStepButton(btnId, slider, step) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+
+            let holdTimer = null;
+            let repeatInterval = null;
+
+            const stepOnce = () => {
+                const min = parseFloat(slider.min);
+                const max = parseFloat(slider.max);
+                let current = parseFloat(slider.value) || 0;
+                let next = Math.round((current + step) * 10) / 10;
+                if (next < min) next = min;
+                if (next > max) next = max;
+                if (next !== current) {
+                    slider.value = next;
+                    slider.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            };
+
+            const startHold = (e) => {
+                if (e.type === 'touchstart') {
+                    if (e.cancelable) e.preventDefault();
+                } else if (e.type === 'mousedown' && e.button !== 0) {
+                    return;
+                }
+                stepOnce();
+                clearTimeout(holdTimer);
+                clearInterval(repeatInterval);
+                holdTimer = setTimeout(() => {
+                    repeatInterval = setInterval(stepOnce, 50);
+                }, 350);
+            };
+
+            const stopHold = () => {
+                clearTimeout(holdTimer);
+                clearInterval(repeatInterval);
+            };
+
+            btn.addEventListener('mousedown', startHold);
+            btn.addEventListener('touchstart', startHold, { passive: false });
+            window.addEventListener('mouseup', stopHold);
+            window.addEventListener('touchend', stopHold);
+            window.addEventListener('touchcancel', stopHold);
+            btn.addEventListener('mouseleave', stopHold);
+
+            btn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    stepOnce();
+                }
+            });
+        }
+
+        setupStepButton('zoomMinusBtn', zoomSlider, -1);
+        setupStepButton('zoomPlusBtn', zoomSlider, 1);
+        setupStepButton('brightMinusBtn', brightSlider, -1);
+        setupStepButton('brightPlusBtn', brightSlider, 1);
+
         sizeSelector.onchange = () => {
             updateCanvasSize();
             centerImage();
@@ -1101,15 +1224,24 @@
             }
 
             // Tiled Print Sheet Mode (4x6 inch or 10x15 cm)
-            let sheetW_in = 6;
-            let sheetH_in = 4;
+            let sheetW_mm = 6 * MM_TO_INCH;
+            let sheetH_mm = 4 * MM_TO_INCH;
             if (sheet === '15x10') {
-                sheetW_in = 150 / MM_TO_INCH;
-                sheetH_in = 100 / MM_TO_INCH;
+                sheetW_mm = 150;
+                sheetH_mm = 100;
             }
 
-            exportCanvas.width = Math.round(sheetW_in * DPI);
-            exportCanvas.height = Math.round(sheetH_in * DPI);
+            // Calculate grid columns and rows based on paper dimensions in mm
+            // Add a small epsilon (0.5mm) to absorb floating-point division precision
+            const cols = Math.floor((sheetW_mm + 0.5) / targetW_mm);
+            const rows = Math.floor((sheetH_mm + 0.5) / targetH_mm);
+
+            const sheetW_px = Math.round((sheetW_mm / MM_TO_INCH) * DPI);
+            const sheetH_px = Math.round((sheetH_mm / MM_TO_INCH) * DPI);
+
+            // Ensure canvas is large enough to contain all photos without pixel-rounding clipping
+            exportCanvas.width = Math.max(sheetW_px, cols * pWidth);
+            exportCanvas.height = Math.max(sheetH_px, rows * pHeight);
 
             eCtx.fillStyle = '#FFFFFF';
             eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
@@ -1136,23 +1268,24 @@
                 sCtx.drawImage(img, imgX * previewToRealScale, imgY * previewToRealScale, drawW, drawH);
             }
 
-            const margin = 0;
-            let currentX = 0;
-            let currentY = 0;
+            // Center the grid evenly on the sheet
+            const gridW = cols * pWidth;
+            const gridH = rows * pHeight;
+            const startX = Math.max(0, Math.floor((exportCanvas.width - gridW) / 2));
+            const startY = Math.max(0, Math.floor((exportCanvas.height - gridH) / 2));
 
-            while (currentY + pHeight <= exportCanvas.height) {
-                while (currentX + pWidth <= exportCanvas.width) {
-                    eCtx.drawImage(singleCanvas, currentX, currentY);
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const posX = startX + c * pWidth;
+                    const posY = startY + r * pHeight;
+
+                    eCtx.drawImage(singleCanvas, posX, posY);
 
                     eCtx.strokeStyle = '#D1D5DB';
                     eCtx.setLineDash([6, 6]);
                     eCtx.lineWidth = 1;
-                    eCtx.strokeRect(currentX, currentY, pWidth, pHeight);
-
-                    currentX += pWidth + margin;
+                    eCtx.strokeRect(posX, posY, pWidth, pHeight);
                 }
-                currentX = 0;
-                currentY += pHeight + margin;
             }
 
             saveCanvasImage(exportCanvas, `clean_passport_sheet_${sheet}_${Date.now()}.png`);
